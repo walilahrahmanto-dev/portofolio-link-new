@@ -358,12 +358,12 @@ h1,h2,h3{
   justify-content:center;cursor:pointer;margin-top:4px;
   width:100%;
 }
-.form-note{
-  font-size:12px;color:var(--ink-soft);margin:0;text-align:center;
-}
+.form-submit:disabled{opacity:.6;cursor:not-allowed;}
 .form-status{
-  font-size:12.5px;font-weight:600;margin:0;text-align:center;
+  font-size:12.5px;font-weight:600;margin:0;text-align:center;min-height:1em;
 }
+.form-status-success{color:#2f6b3a;}
+.form-status-error{color:#a13f3f;}
 
 .contact-grid{
   display:grid;grid-template-columns:repeat(5,1fr);gap:1px;
@@ -746,9 +746,13 @@ h1,h2,h3{
     </div>
 
     <form class="contact-form reveal" id="contactForm">
+      <input type="hidden" name="access_key" value="ae2df8e8-b17e-4d6d-987e-c753c016cf21">
+      <input type="hidden" name="subject" value="Pesan baru dari Website Portofolio">
+      <input type="checkbox" name="botcheck" style="display:none" tabindex="-1" autocomplete="off">
+
       <label>
         <span class="form-label">Nama Lengkap</span>
-        <input type="text" name="nama" placeholder="Nama kamu" required>
+        <input type="text" name="name" placeholder="Nama kamu" required>
       </label>
       <label>
         <span class="form-label">Email</span>
@@ -756,10 +760,10 @@ h1,h2,h3{
       </label>
       <label>
         <span class="form-label">Pesan</span>
-        <textarea name="pesan" rows="5" placeholder="Tulis pesan Anda di sini..." required></textarea>
+        <textarea name="message" rows="5" placeholder="Tulis pesan Anda di sini..." required></textarea>
       </label>
       <button type="submit" class="btn btn-solid form-submit">KIRIM PESAN</button>
-      <p class="form-note">Pesan akan terkirim lewat aplikasi email kamu.</p>
+      <p class="form-status" id="formStatus"></p>
     </form>
   </div>
 </section>
@@ -861,18 +865,47 @@ const toggleNavShadow = () => {
 window.addEventListener('scroll', toggleNavShadow, { passive: true });
 toggleNavShadow();
 
-// ---------- contact form (mailto handoff, no backend) ----------
+// ---------- contact form (sends via Web3Forms, no email app needed) ----------
 const contactForm = document.getElementById('contactForm');
-if (contactForm) {
-  contactForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const nama = contactForm.nama.value.trim();
-    const email = contactForm.email.value.trim();
-    const pesan = contactForm.pesan.value.trim();
+const formStatus = document.getElementById('formStatus');
 
-    const subject = encodeURIComponent(`Pesan dari ${nama}`);
-    const body = encodeURIComponent(`${pesan}\n\n—\nDari: ${nama}\nEmail: ${email}`);
-    window.location.href = `mailto:walilahrahmanto@gmail.com?subject=${subject}&body=${body}`;
+if (contactForm) {
+  contactForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+
+    const submitBtn = contactForm.querySelector('.form-submit');
+    const formData = new FormData(contactForm);
+    const payload = Object.fromEntries(formData.entries());
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'MENGIRIM...';
+    formStatus.textContent = '';
+    formStatus.className = 'form-status';
+
+    fetch('https://api.web3forms.com/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(payload)
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          contactForm.reset();
+          formStatus.textContent = 'Pesan berhasil dikirim. Terima kasih!';
+          formStatus.classList.add('form-status-success');
+        } else {
+          formStatus.textContent = 'Gagal mengirim pesan. Coba lagi, atau hubungi lewat WhatsApp/Email di samping.';
+          formStatus.classList.add('form-status-error');
+        }
+      })
+      .catch(() => {
+        formStatus.textContent = 'Gagal mengirim pesan. Coba lagi, atau hubungi lewat WhatsApp/Email di samping.';
+        formStatus.classList.add('form-status-error');
+      })
+      .finally(() => {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'KIRIM PESAN';
+      });
   });
 }
 
